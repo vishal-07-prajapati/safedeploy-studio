@@ -1,0 +1,186 @@
+@page "/projects"
+@inject IOrganizationRepository OrgRepo
+@inject IProjectRepository ProjectRepo
+@inject IDatabaseConnectionRepository ConnRepo
+@inject IDatabaseProviderFactory ProviderFactory
+
+<PageTitle>SafeDeploy Studio - Projects & Environments</PageTitle>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div>
+        <h1 style="font-size: 1.5rem; font-weight: 700; margin: 0;">Projects & Environments</h1>
+        <p style="color: var(--text-muted); margin: 0.25rem 0 0 0; font-size: 13px;">
+            Manage multi-tenant organizations, isolated project boundaries, and database endpoints.
+        </p>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem;">
+    <!-- Left: Projects List -->
+    <div class="card" style="margin-bottom: 0;">
+        <div class="card-header">
+            <h3 class="card-title" style="font-size: 0.95rem;">Projects</h3>
+        </div>
+
+        @if (_projects.Count == 0)
+        {
+            <p style="color: var(--text-muted); font-size: 13px;">No projects registered.</p>
+        }
+        else
+        {
+            <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                @foreach (var proj in _projects)
+                {
+                    <div @onclick="() => SelectProject(proj)"
+                         style="padding: 0.75rem; border-radius: 6px; cursor: pointer; border: 1px solid @(proj.Id == _selectedProject?.Id ? "var(--accent)" : "transparent"); background-color: @(proj.Id == _selectedProject?.Id ? "var(--accent-light)" : "transparent");">
+                        <div style="font-weight: 600; font-size: 13.5px; color: var(--text-primary);">@proj.Name</div>
+                        <div style="font-size: 11.5px; color: var(--text-muted);">@proj.Slug</div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Right: Project Details & Environments -->
+    <div>
+        @if (_selectedProject != null)
+        {
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <h2 class="card-title">@_selectedProject.Name</h2>
+                        <span style="font-size: 12px; color: var(--text-muted);">Slug: @_selectedProject.Slug</span>
+                    </div>
+                    <span class="badge badge-info">@_selectedProject.Environments.Count Environments</span>
+                </div>
+
+                <h4 style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.75rem;">
+                    Configured Environments
+                </h4>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                    @foreach (var env in _selectedProject.Environments.OrderBy(e => e.OrderIndex))
+                    {
+                        <div style="background-color: var(--bg-card-hover); border: 1px solid var(--border-color); border-radius: 6px; padding: 1rem; border-left: 4px solid @env.DisplayColor;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                <span style="font-weight: 600; font-size: 14px;">@env.Name</span>
+                                @if (env.IsProduction)
+                                {
+                                    <span class="badge badge-danger">Production</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-neutral">@env.EnvironmentType</span>
+                                }
+                            </div>
+                            <div style="font-size: 12px; color: var(--text-muted);">
+                                DB: @(env.DatabaseConnection?.DatabaseName ?? "No Connection Attached")
+                            </div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 0.25rem;">
+                                Host: @(env.DatabaseConnection?.Server ?? "localhost")
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <h4 style="font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.75rem;">
+                    Database Connections
+                </h4>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Provider</th>
+                                <th>Server / Port</th>
+                                <th>Database</th>
+                                <th>Auth</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var conn in _connections)
+                            {
+                                <tr>
+                                    <td style="font-weight: 500;">@conn.Name</td>
+                                    <td><span class="badge badge-info">@conn.ProviderType</span></td>
+                                    <td>@conn.Server:@conn.Port</td>
+                                    <td>@conn.DatabaseName</td>
+                                    <td>@conn.AuthType</td>
+                                    <td>
+                                        <button class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 11.5px;"
+                                                @onclick="() => TestConnection(conn)">
+                                            @(_testingConnId == conn.Id ? "Testing..." : "Test Connection")
+                                        </button>
+                                        @if (_testResults.TryGetValue(conn.Id, out var success))
+                                        {
+                                            <span style="margin-left: 0.5rem; font-size: 11px; color: @(success ? "var(--success)" : "var(--danger)"); font-weight: 600;">
+                                                @(success ? "✓ Connected" : "✗ Failed")
+                                            </span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="card" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                Select a project on the left to inspect environments and connections.
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<Project> _projects = [];
+    private Project? _selectedProject;
+    private List<DatabaseConnection> _connections = [];
+    private Guid? _testingConnId;
+    private Dictionary<Guid, bool> _testResults = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var orgs = await OrgRepo.GetAllAsync();
+        _projects = orgs.SelectMany(o => o.Projects).ToList();
+        if (_projects.Count > 0)
+        {
+            await SelectProject(_projects[0]);
+        }
+    }
+
+    private async Task SelectProject(Project project)
+    {
+        _selectedProject = await ProjectRepo.GetByIdAsync(project.Id);
+        if (_selectedProject != null)
+        {
+            _connections = (await ConnRepo.GetByProjectIdAsync(_selectedProject.Id)).ToList();
+        }
+        _testResults.Clear();
+    }
+
+    private async Task TestConnection(DatabaseConnection conn)
+    {
+        _testingConnId = conn.Id;
+        StateHasChanged();
+
+        try
+        {
+            var provider = ProviderFactory.GetProvider(conn.ProviderType);
+            var isConnected = await provider.TestConnectionAsync(conn);
+            _testResults[conn.Id] = isConnected;
+        }
+        catch
+        {
+            _testResults[conn.Id] = false;
+        }
+        finally
+        {
+            _testingConnId = null;
+        }
+    }
+}

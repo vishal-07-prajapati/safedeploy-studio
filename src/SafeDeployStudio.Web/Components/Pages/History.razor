@@ -1,0 +1,316 @@
+@page "/history"
+@inject IOrganizationRepository OrgRepo
+@inject IProjectRepository ProjectRepo
+@inject IDeploymentRecordRepository DeploymentRepo
+@inject IBackupVaultService BackupVault
+@inject IWorkflowService WorkflowService
+
+<PageTitle>SafeDeploy Studio - Audit & Rollback</PageTitle>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div>
+        <h1 style="font-size: 1.5rem; font-weight: 700; margin: 0;">Deployment Audit & 1-Click Rollback</h1>
+        <p style="color: var(--text-muted); margin: 0.25rem 0 0 0; font-size: 13px;">
+            Immutable audit trail of all schema migrations, dry-runs, and pre-change backup vault snapshots.
+        </p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Filter Audit History</h2>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Project</label>
+            <select class="form-select" @onchange="OnProjectFilterChanged">
+                @foreach (var p in _projects)
+                {
+                    <option value="@p.Id">@p.Name</option>
+                }
+            </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Status Filter</label>
+            <select class="form-select" @bind="_selectedStatusFilter">
+                <option value="All">All Statuses</option>
+                <option value="Succeeded">Succeeded</option>
+                <option value="Failed">Failed</option>
+                <option value="ValidationFailed">Guardrail Blocked</option>
+                <option value="RolledBack">Rolled Back</option>
+            </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Search Title / User</label>
+            <input class="form-control" @bind="_searchQuery" @bind:event="oninput" placeholder="Filter by keyword..." />
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Title / Change</th>
+                    <th>Route</th>
+                    <th>Status</th>
+                    <th>Risk</th>
+                    <th>Duration</th>
+                    <th>Executed By</th>
+                    <th>Timestamp (UTC)</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (FilteredRecords.Count == 0)
+                {
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                            No deployment records match the selected filter criteria.
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var dep in FilteredRecords)
+                    {
+                        <tr>
+                            <td style="font-weight: 500;">@dep.Title</td>
+                            <td style="color: var(--text-secondary);">
+                                @(dep.SourceEnvironment?.Name ?? "Source") &rarr; @(dep.TargetEnvironment?.Name ?? "Target")
+                            </td>
+                            <td>
+                                @switch (dep.Status)
+                                {
+                                    case DeploymentStatus.Succeeded:
+                                        <span class="badge badge-success">Succeeded</span>
+                                        break;
+                                    case DeploymentStatus.Failed:
+                                        <span class="badge badge-danger">Failed</span>
+                                        break;
+                                    case DeploymentStatus.ValidationFailed:
+                                        <span class="badge badge-warning">Guardrail Block</span>
+                                        break;
+                                    case DeploymentStatus.RolledBack:
+                                        <span class="badge badge-neutral">Rolled Back</span>
+                                        break;
+                                    default:
+                                        <span class="badge badge-info">@dep.Status</span>
+                                        break;
+                                }
+                            </td>
+                            <td>
+                                @switch (dep.OverallRiskLevel)
+                                {
+                                    case RiskLevel.Critical:
+                                        <span class="badge badge-danger">Critical</span>
+                                        break;
+                                    case RiskLevel.High:
+                                        <span class="badge badge-warning">High</span>
+                                        break;
+                                    case RiskLevel.Medium:
+                                        <span class="badge badge-info">Medium</span>
+                                        break;
+                                    default:
+                                        <span class="badge badge-neutral">Low</span>
+                                        break;
+                                }
+                            </td>
+                            <td>@(dep.ExecutionDurationMs) ms</td>
+                            <td>@dep.CreatedBy</td>
+                            <td>@dep.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td>
+                                <button class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 11.5px; margin-right: 0.35rem;" @onclick="() => InspectRecord(dep)">
+                                    Details
+                                </button>
+                                @if (dep.BackupSnapshotId.HasValue && dep.Status == DeploymentStatus.Succeeded)
+                                {
+                                    <button class="btn btn-danger" style="padding: 0.2rem 0.5rem; font-size: 11.5px;" @onclick="() => PromptRollback(dep)">
+                                        ↺ Rollback
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Details Modal -->
+@if (_inspectedRecord != null)
+{
+    <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 2rem;">
+        <div class="card" style="width: 800px; max-height: 90vh; display: flex; flex-direction: column; margin: 0;">
+            <div class="card-header">
+                <div>
+                    <h3 class="card-title">Deployment Audit Details</h3>
+                    <div style="font-size: 12px; color: var(--text-muted);">Record ID: @_inspectedRecord.Id</div>
+                </div>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem;" @onclick="() => _inspectedRecord = null">✕</button>
+            </div>
+
+            <div style="overflow-y: auto; flex: 1; padding-right: 0.5rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div><strong>Title:</strong> @_inspectedRecord.Title</div>
+                    <div><strong>Status:</strong> @_inspectedRecord.Status</div>
+                    <div><strong>Executed At (UTC):</strong> @_inspectedRecord.ExecutedAtUtc?.ToString("u")</div>
+                    <div><strong>Duration:</strong> @_inspectedRecord.ExecutionDurationMs ms</div>
+                    <div><strong>Backup Snapshot:</strong> @(_inspectedRecord.BackupSnapshotId?.ToString() ?? "None")</div>
+                    <div><strong>Created By:</strong> @_inspectedRecord.CreatedBy</div>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(_inspectedRecord.ErrorMessage))
+                {
+                    <div style="padding: 0.75rem; background-color: var(--danger-bg); border: 1px solid var(--danger); border-radius: 4px; color: var(--danger); font-size: 12.5px; margin-bottom: 1rem;">
+                        <strong>Error:</strong> @_inspectedRecord.ErrorMessage
+                    </div>
+                }
+
+                <h4 style="font-size: 12.5px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.5rem;">
+                    Execution Log
+                </h4>
+                <div class="terminal-box" style="height: 250px;">
+                    <pre style="margin: 0; white-space: pre-wrap; color: #38bdf8; font-family: var(--font-mono); font-size: 11.5px;">@(_inspectedRecord.ExecutionLog ?? "No log captured.")</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Rollback Confirmation Dialog -->
+@if (_rollbackTarget != null)
+{
+    <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 2rem;">
+        <div class="card" style="width: 500px; margin: 0; border: 1px solid var(--danger);">
+            <div class="card-header">
+                <h3 class="card-title" style="color: var(--danger);">⚠️ Confirm Instant Rollback</h3>
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem;" @onclick="() => _rollbackTarget = null">✕</button>
+            </div>
+
+            <p style="font-size: 13.5px; margin-bottom: 1rem;">
+                Are you sure you want to roll back deployment <strong>@_rollbackTarget.Title</strong>?
+            </p>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 1.5rem;">
+                This will automatically restore the pre-change SQL snapshot captured in the Vault prior to this deployment.
+            </p>
+
+            @if (_rollbackResult != null)
+            {
+                <div style="padding: 0.75rem; margin-bottom: 1rem; border-radius: 4px; background: @(_rollbackResult.Status == DeploymentStatus.RolledBack ? "var(--success-bg)" : "var(--danger-bg)"); color: @(_rollbackResult.Status == DeploymentStatus.RolledBack ? "var(--success)" : "var(--danger)"); font-weight: 600;">
+                    @(_rollbackResult.Status == DeploymentStatus.RolledBack ? "✓ Rollback executed successfully!" : $"✗ Rollback failed: {_rollbackResult.ErrorMessage}")
+                </div>
+            }
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                <button class="btn btn-secondary" @onclick="() => _rollbackTarget = null">Cancel</button>
+                <button class="btn btn-danger" disabled="@_isRollingBack" @onclick="ExecuteRollback">
+                    @(_isRollingBack ? "Rolling Back..." : "Confirm Rollback")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Project> _projects = [];
+    private Project? _selectedProject;
+    private List<DeploymentRecord> _records = [];
+    private string _selectedStatusFilter = "All";
+    private string _searchQuery = "";
+
+    private DeploymentRecord? _inspectedRecord;
+    private DeploymentRecord? _rollbackTarget;
+    private bool _isRollingBack = false;
+    private RollbackRecord? _rollbackResult;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var orgs = await OrgRepo.GetAllAsync();
+        _projects = orgs.SelectMany(o => o.Projects).ToList();
+
+        if (_projects.Count > 0)
+        {
+            _selectedProject = _projects[0];
+            await LoadRecords();
+        }
+    }
+
+    private async Task OnProjectFilterChanged(ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value?.ToString(), out var pId))
+        {
+            _selectedProject = _projects.FirstOrDefault(p => p.Id == pId);
+            await LoadRecords();
+        }
+    }
+
+    private async Task LoadRecords()
+    {
+        if (_selectedProject != null)
+        {
+            _records = (await DeploymentRepo.GetRecentByProjectIdAsync(_selectedProject.Id, 100)).ToList();
+        }
+    }
+
+    private List<DeploymentRecord> FilteredRecords => _records.Where(r =>
+    {
+        if (_selectedStatusFilter != "All" && r.Status.ToString() != _selectedStatusFilter)
+            return false;
+
+        if (!string.IsNullOrWhiteSpace(_searchQuery))
+        {
+            var q = _searchQuery.Trim().ToLowerInvariant();
+            if (!r.Title.ToLowerInvariant().Contains(q) && !r.CreatedBy.ToLowerInvariant().Contains(q))
+                return false;
+        }
+
+        return true;
+    }).ToList();
+
+    private void InspectRecord(DeploymentRecord record)
+    {
+        _inspectedRecord = record;
+    }
+
+    private void PromptRollback(DeploymentRecord record)
+    {
+        _rollbackTarget = record;
+        _rollbackResult = null;
+    }
+
+    private async Task ExecuteRollback()
+    {
+        if (_rollbackTarget?.BackupSnapshotId == null) return;
+
+        _isRollingBack = true;
+        StateHasChanged();
+
+        try
+        {
+            var cmd = new RollbackCommand(
+                _rollbackTarget.BackupSnapshotId.Value,
+                _rollbackTarget.TargetEnvironmentId,
+                "developer");
+
+            _rollbackResult = await WorkflowService.ExecuteRollbackAsync(cmd);
+            await LoadRecords();
+        }
+        catch (Exception ex)
+        {
+            _rollbackResult = new RollbackRecord
+            {
+                Status = DeploymentStatus.Failed,
+                ErrorMessage = ex.Message
+            };
+        }
+        finally
+        {
+            _isRollingBack = false;
+        }
+    }
+}

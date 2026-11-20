@@ -1,0 +1,36 @@
+﻿@inherits LayoutComponentBase
+
+<div class="app-container" data-theme="@_currentTheme">
+    <NavMenu />
+
+    <div class="main-content">
+        <header class="top-navbar">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <span style="font-weight: 600; font-size: 13.5px; color: var(--text-primary);">SafeDeploy Enterprise Platform</span>
+                <span class="badge badge-info">Multi-Project</span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <button class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 12px;" @onclick="ToggleTheme">
+                    @(_currentTheme == "dark" ? "☀️ Light Mode" : "🌙 Dark Mode")
+                </button>
+                <a href="deploy" class="btn btn-primary" style="padding: 0.35rem 0.85rem; font-size: 12.5px;">
+                    + New Deployment
+                </a>
+            </div>
+        </header>
+
+        <main class="workspace-content">
+            @Body
+        </main>
+    </div>
+</div>
+
+@code {
+    private string _currentTheme = "dark";
+
+    private void ToggleTheme()
+    {
+        _currentTheme = _currentTheme == "dark" ? "light" : "dark";
+    }
+}

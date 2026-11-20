@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SafeDeployStudio.Domain\SafeDeployStudio.Domain.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.DatabaseProviders\SafeDeployStudio.DatabaseProviders.Abstractions\SafeDeployStudio.DatabaseProviders.Abstractions.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.Guardrails\SafeDeployStudio.Guardrails.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.Deployment\SafeDeployStudio.Deployment.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.Backup\SafeDeployStudio.Backup.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.AI\SafeDeployStudio.AI.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

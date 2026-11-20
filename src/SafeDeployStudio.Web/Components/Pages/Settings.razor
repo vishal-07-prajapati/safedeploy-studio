@@ -1,0 +1,173 @@
+@page "/settings"
+@inject IOrganizationRepository OrgRepo
+@inject IProjectRepository ProjectRepo
+@inject IGuardrailPolicyRepository GuardrailRepo
+
+<PageTitle>SafeDeploy Studio - Guardrails & Settings</PageTitle>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div>
+        <h1 style="font-size: 1.5rem; font-weight: 700; margin: 0;">Guardrails & System Settings</h1>
+        <p style="color: var(--text-muted); margin: 0.25rem 0 0 0; font-size: 13px;">
+            Configure enterprise security policies, DDL blockers, and AI optimization endpoints.
+        </p>
+    </div>
+    <button class="btn btn-primary" @onclick="SaveSettings">
+        💾 Save Configuration
+    </button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(_statusMessage))
+{
+    <div style="padding: 0.85rem 1.25rem; margin-bottom: 1.5rem; border-radius: 6px; background-color: var(--success-bg); border: 1px solid var(--success); color: var(--success); font-weight: 600;">
+        @_statusMessage
+    </div>
+}
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+    <!-- Guardrail Policy Settings -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">Enterprise Safety Guardrails</h2>
+            <span class="badge badge-info">Per-Project Policy</span>
+        </div>
+
+        @if (_policy != null)
+        {
+            <div class="form-group">
+                <label class="form-label">Policy Name</label>
+                <input class="form-control" @bind="_policy.Name" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <input class="form-control" @bind="_policy.Description" />
+            </div>
+
+            <div style="margin-top: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                <label style="display: flex; align-items: center; gap: 0.65rem; cursor: pointer;">
+                    <input type="checkbox" @bind="_policy.BlockDropTable" />
+                    <span>Block Physical <strong>DROP TABLE</strong> (allow temporary tables #temp only)</span>
+                </label>
+
+                <label style="display: flex; align-items: center; gap: 0.65rem; cursor: pointer;">
+                    <input type="checkbox" @bind="_policy.BlockTruncateTable" />
+                    <span>Block Physical <strong>TRUNCATE TABLE</strong></span>
+                </label>
+
+                <label style="display: flex; align-items: center; gap: 0.65rem; cursor: pointer;">
+                    <input type="checkbox" @bind="_policy.BlockAlterPhysicalTable" />
+                    <span>Block Physical <strong>ALTER TABLE</strong> in migration scripts</span>
+                </label>
+
+                <label style="display: flex; align-items: center; gap: 0.65rem; cursor: pointer;">
+                    <input type="checkbox" @bind="_policy.RequireWhereOnUpdateDelete" />
+                    <span>Require <strong>WHERE</strong> clause on UPDATE and DELETE</span>
+                </label>
+
+                <label style="display: flex; align-items: center; gap: 0.65rem; cursor: pointer;">
+                    <input type="checkbox" @bind="_policy.RequireAsciiOnly" />
+                    <span>Enforce <strong>7-bit ASCII & BOM Compliance</strong> (flags smart quotes/dashes)</span>
+                </label>
+            </div>
+
+            <div class="form-group" style="margin-top: 1.25rem;">
+                <label class="form-label">Maximum Script Payload Size (KB)</label>
+                <input type="number" class="form-control" @bind="_policy.MaxScriptSizeKb" />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Forbidden Administrative Keywords (JSON Array)</label>
+                <textarea class="form-control" rows="3" style="font-family: var(--font-mono); font-size: 12px;" @bind="_policy.ForbiddenKeywordsJson"></textarea>
+            </div>
+        }
+    </div>
+
+    <!-- AI Advisor & Integration Settings -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">AI Optimization Advisor</h2>
+            <span class="badge badge-neutral">Optional Extension</span>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">AI Engine Provider</label>
+            <select class="form-select" @bind="_aiProvider">
+                <option value="LocalRuleEngine">Local Deterministic Rule Engine (No External API required)</option>
+                <option value="OpenAI">OpenAI (ChatGPT / GPT-4o)</option>
+                <option value="AzureOpenAI">Azure OpenAI Service</option>
+                <option value="Ollama">Ollama / Local LLM (Self-Hosted)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Endpoint URL</label>
+            <input class="form-control" @bind="_aiEndpoint" placeholder="https://api.openai.com/v1/chat/completions or http://localhost:11434" />
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">API Key / Token (stored securely)</label>
+            <input type="password" class="form-control" @bind="_aiApiKey" placeholder="sk-..." />
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Model Name</label>
+            <input class="form-control" @bind="_aiModelName" placeholder="gpt-4o-mini" />
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Temperature: @_aiTemperature.ToString("F1")</label>
+            <input type="range" min="0" max="1" step="0.1" class="form-range w-100" @bind="_aiTemperature" />
+        </div>
+
+        <div style="background-color: var(--bg-card-hover); border-radius: 6px; padding: 1rem; margin-top: 1.25rem;">
+            <div style="font-weight: 600; font-size: 13px; margin-bottom: 0.25rem;">Deterministic SARGability Safety</div>
+            <div style="font-size: 12px; color: var(--text-muted);">
+                The local deterministic engine always runs regardless of external LLM availability. It catches non-SARGable DATEPART/ISNULL predicates, SELECT *, missing SET NOCOUNT ON, and cursor declarations.
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Project> _projects = [];
+    private Project? _selectedProject;
+    private GuardrailPolicy? _policy;
+    private string _statusMessage = "";
+
+    private string _aiProvider = "LocalRuleEngine";
+    private string _aiEndpoint = "https://api.openai.com/v1/chat/completions";
+    private string _aiApiKey = "";
+    private string _aiModelName = "gpt-4o-mini";
+    private double _aiTemperature = 0.1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var orgs = await OrgRepo.GetAllAsync();
+        _projects = orgs.SelectMany(o => o.Projects).ToList();
+
+        if (_projects.Count > 0)
+        {
+            _selectedProject = _projects[0];
+            _policy = await GuardrailRepo.GetByProjectIdAsync(_selectedProject.Id);
+            if (_policy == null)
+            {
+                _policy = new GuardrailPolicy(_selectedProject.Id, "Default Policy");
+            }
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        if (_policy != null)
+        {
+            await GuardrailRepo.UpdateAsync(_policy);
+            _statusMessage = "✓ Configuration saved successfully.";
+            StateHasChanged();
+
+            await Task.Delay(3000);
+            _statusMessage = "";
+            StateHasChanged();
+        }
+    }
+}

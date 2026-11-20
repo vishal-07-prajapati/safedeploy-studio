@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SafeDeployStudio.Application\SafeDeployStudio.Application.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.Infrastructure\SafeDeployStudio.Infrastructure.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.DatabaseProviders\SafeDeployStudio.DatabaseProviders.SqlServer\SafeDeployStudio.DatabaseProviders.SqlServer.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.Deployment\SafeDeployStudio.Deployment.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.Backup\SafeDeployStudio.Backup.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.AI\SafeDeployStudio.AI.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.Guardrails\SafeDeployStudio.Guardrails.csproj" />
+  </ItemGroup>
+
+</Project>

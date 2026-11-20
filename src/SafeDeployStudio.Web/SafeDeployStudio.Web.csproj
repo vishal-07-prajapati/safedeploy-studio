@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SafeDeployStudio.Application\SafeDeployStudio.Application.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.Domain\SafeDeployStudio.Domain.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.Infrastructure\SafeDeployStudio.Infrastructure.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.AI\SafeDeployStudio.AI.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+</Project>

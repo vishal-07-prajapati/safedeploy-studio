@@ -1,0 +1,22 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SafeDeployStudio.AI/SafeDeployStudio.AI.csproj" />
+    <Project Path="src/SafeDeployStudio.Api/SafeDeployStudio.Api.csproj" />
+    <Project Path="src/SafeDeployStudio.Application/SafeDeployStudio.Application.csproj" />
+    <Project Path="src/SafeDeployStudio.Backup/SafeDeployStudio.Backup.csproj" />
+    <Project Path="src/SafeDeployStudio.Deployment/SafeDeployStudio.Deployment.csproj" />
+    <Project Path="src/SafeDeployStudio.Desktop/SafeDeployStudio.Desktop.csproj" />
+    <Project Path="src/SafeDeployStudio.Domain/SafeDeployStudio.Domain.csproj" />
+    <Project Path="src/SafeDeployStudio.Guardrails/SafeDeployStudio.Guardrails.csproj" />
+    <Project Path="src/SafeDeployStudio.Infrastructure/SafeDeployStudio.Infrastructure.csproj" />
+    <Project Path="src/SafeDeployStudio.Web/SafeDeployStudio.Web.csproj" />
+  </Folder>
+  <Folder Name="/src/SafeDeployStudio.DatabaseProviders/">
+    <Project Path="src/SafeDeployStudio.DatabaseProviders/SafeDeployStudio.DatabaseProviders.Abstractions/SafeDeployStudio.DatabaseProviders.Abstractions.csproj" />
+    <Project Path="src/SafeDeployStudio.DatabaseProviders/SafeDeployStudio.DatabaseProviders.SqlServer/SafeDeployStudio.DatabaseProviders.SqlServer.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SafeDeployStudio.IntegrationTests/SafeDeployStudio.IntegrationTests.csproj" />
+    <Project Path="tests/SafeDeployStudio.UnitTests/SafeDeployStudio.UnitTests.csproj" />
+  </Folder>
+</Solution>

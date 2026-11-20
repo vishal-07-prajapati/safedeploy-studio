@@ -1,0 +1,58 @@
+name: Release & Distribute
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish-desktop:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET 10 SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Restore Solution
+      run: dotnet restore SafeDeployStudio.slnx
+
+    - name: Publish Desktop Client (Self-Contained win-x64)
+      run: >
+        dotnet publish src/SafeDeployStudio.Desktop/SafeDeployStudio.Desktop.csproj
+        --configuration Release
+        --runtime win-x64
+        --self-contained true
+        -p:PublishSingleFile=true
+        -p:IncludeNativeLibrariesForSelfExtract=true
+        --output publish/desktop
+
+    - name: Package Portable Zip
+      shell: pwsh
+      run: |
+        Compress-Archive -Path publish/desktop/* -DestinationPath publish/SafeDeployStudio-Portable-win-x64.zip
+
+    - name: Publish Web Server
+      run: >
+        dotnet publish src/SafeDeployStudio.Web/SafeDeployStudio.Web.csproj
+        --configuration Release
+        --output publish/web
+
+    - name: Package Web Server Zip
+      shell: pwsh
+      run: |
+        Compress-Archive -Path publish/web/* -DestinationPath publish/SafeDeployStudio-Web-IIS.zip
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          publish/SafeDeployStudio-Portable-win-x64.zip
+          publish/SafeDeployStudio-Web-IIS.zip
+        generate_release_notes: true

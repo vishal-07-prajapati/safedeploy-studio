@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\SafeDeployStudio.Domain\SafeDeployStudio.Domain.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.Application\SafeDeployStudio.Application.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.DatabaseProviders\SafeDeployStudio.DatabaseProviders.Abstractions\SafeDeployStudio.DatabaseProviders.Abstractions.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.DatabaseProviders\SafeDeployStudio.DatabaseProviders.SqlServer\SafeDeployStudio.DatabaseProviders.SqlServer.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.Backup\SafeDeployStudio.Backup.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.Guardrails\SafeDeployStudio.Guardrails.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.Deployment\SafeDeployStudio.Deployment.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.AI\SafeDeployStudio.AI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="9.0.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

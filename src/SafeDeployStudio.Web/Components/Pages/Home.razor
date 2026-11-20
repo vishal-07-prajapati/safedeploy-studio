@@ -1,0 +1,150 @@
+﻿@page "/"
+@inject IProjectRepository ProjectRepo
+@inject IDeploymentRecordRepository DeploymentRepo
+@inject IOrganizationRepository OrgRepo
+
+<PageTitle>SafeDeploy Studio - Dashboard</PageTitle>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div>
+        <h1 style="font-size: 1.5rem; font-weight: 700; margin: 0;">Deployment Overview</h1>
+        <p style="color: var(--text-muted); margin: 0.25rem 0 0 0; font-size: 13px;">
+            Intelligent enterprise database change management and deployment guardrails.
+        </p>
+    </div>
+    <a href="deploy" class="btn btn-primary">
+        🚀 Launch Deploy Studio
+    </a>
+</div>
+
+<div class="metric-grid">
+    <div class="metric-card">
+        <span class="metric-label">Active Projects</span>
+        <span class="metric-value">@_projects.Count</span>
+    </div>
+    <div class="metric-card">
+        <span class="metric-label">Total Deployments</span>
+        <span class="metric-value">@_recentDeployments.Count</span>
+    </div>
+    <div class="metric-card">
+        <span class="metric-label">Success Rate</span>
+        <span class="metric-value" style="color: var(--success);">
+            @(_recentDeployments.Count > 0 ? $"{(_recentDeployments.Count(d => d.Status == DeploymentStatus.Succeeded) * 100 / _recentDeployments.Count)}%" : "100%")
+        </span>
+    </div>
+    <div class="metric-card">
+        <span class="metric-label">Active Guardrails</span>
+        <span class="metric-value" style="color: var(--info);">6 Rules</span>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Recent Deployments & Audit Trail</h2>
+        <a href="history" class="btn btn-secondary" style="font-size: 12px; padding: 0.3rem 0.65rem;">
+            View Full Audit Log
+        </a>
+    </div>
+
+    @if (_recentDeployments.Count == 0)
+    {
+        <div style="padding: 2.5rem; text-align: center; color: var(--text-muted);">
+            <p style="margin: 0; font-size: 14px;">No deployments executed yet.</p>
+            <p style="margin: 0.5rem 0 1rem 0; font-size: 12px;">Launch Deploy Studio to compare and safely migrate your first database object.</p>
+            <a href="deploy" class="btn btn-primary" style="font-size: 12.5px;">+ Start Deployment</a>
+        </div>
+    }
+    else
+    {
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Title / Change</th>
+                        <th>Source -> Target</th>
+                        <th>Status</th>
+                        <th>Risk Level</th>
+                        <th>Executed By</th>
+                        <th>Duration</th>
+                        <th>Date (UTC)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var dep in _recentDeployments.Take(10))
+                    {
+                        <tr>
+                            <td style="font-weight: 500;">@dep.Title</td>
+                            <td>
+                                <span style="color: var(--text-secondary);">
+                                    @(dep.SourceEnvironment?.Name ?? "Source") &rarr; @(dep.TargetEnvironment?.Name ?? "Target")
+                                </span>
+                            </td>
+                            <td>
+                                @switch (dep.Status)
+                                {
+                                    case DeploymentStatus.Succeeded:
+                                        <span class="badge badge-success">Succeeded</span>
+                                        break;
+                                    case DeploymentStatus.Failed:
+                                        <span class="badge badge-danger">Failed</span>
+                                        break;
+                                    case DeploymentStatus.ValidationFailed:
+                                        <span class="badge badge-warning">Guardrail Block</span>
+                                        break;
+                                    case DeploymentStatus.RolledBack:
+                                        <span class="badge badge-neutral">Rolled Back</span>
+                                        break;
+                                    default:
+                                        <span class="badge badge-info">@dep.Status</span>
+                                        break;
+                                }
+                            </td>
+                            <td>
+                                @switch (dep.OverallRiskLevel)
+                                {
+                                    case RiskLevel.Critical:
+                                        <span class="badge badge-danger">Critical</span>
+                                        break;
+                                    case RiskLevel.High:
+                                        <span class="badge badge-warning">High</span>
+                                        break;
+                                    case RiskLevel.Medium:
+                                        <span class="badge badge-info">Medium</span>
+                                        break;
+                                    default:
+                                        <span class="badge badge-neutral">Low</span>
+                                        break;
+                                }
+                            </td>
+                            <td>@dep.CreatedBy</td>
+                            <td>@(dep.ExecutionDurationMs) ms</td>
+                            <td>@dep.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Project> _projects = [];
+    private List<DeploymentRecord> _recentDeployments = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var orgs = await OrgRepo.GetAllAsync();
+        _projects = orgs.SelectMany(o => o.Projects).ToList();
+
+        if (_projects.Count > 0)
+        {
+            var allRecords = new List<DeploymentRecord>();
+            foreach (var p in _projects)
+            {
+                var records = await DeploymentRepo.GetRecentByProjectIdAsync(p.Id, 20);
+                allRecords.AddRange(records);
+            }
+            _recentDeployments = allRecords.OrderByDescending(r => r.CreatedAtUtc).ToList();
+        }
+    }
+}
