@@ -43,6 +43,11 @@ public class SafeDeployDbContext : DbContext
              .WithMany(o => o.Projects)
              .HasForeignKey(p => p.OrganizationId)
              .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(p => p.GuardrailPolicy)
+             .WithOne(g => g.Project)
+             .HasForeignKey<GuardrailPolicy>(g => g.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<EnvironmentDefinition>(b =>
@@ -74,6 +79,16 @@ public class SafeDeployDbContext : DbContext
             b.HasOne(r => r.Project)
              .WithMany(p => p.DeploymentRecords)
              .HasForeignKey(r => r.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(r => r.BackupSnapshot)
+             .WithOne(s => s.DeploymentRecord)
+             .HasForeignKey<DeploymentRecord>(r => r.BackupSnapshotId)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            b.HasOne(r => r.RollbackRecord)
+             .WithOne(rb => rb.DeploymentRecord)
+             .HasForeignKey<RollbackRecord>(rb => rb.DeploymentRecordId)
              .OnDelete(DeleteBehavior.Cascade);
         });
 

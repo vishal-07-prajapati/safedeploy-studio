@@ -5,6 +5,8 @@
     <ProjectReference Include="..\SafeDeployStudio.Domain\SafeDeployStudio.Domain.csproj" />
     <ProjectReference Include="..\SafeDeployStudio.Infrastructure\SafeDeployStudio.Infrastructure.csproj" />
     <ProjectReference Include="..\SafeDeployStudio.AI\SafeDeployStudio.AI.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.Deployment\SafeDeployStudio.Deployment.csproj" />
+    <ProjectReference Include="..\SafeDeployStudio.Backup\SafeDeployStudio.Backup.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -61,7 +61,7 @@ public class BlockPhysicalTableDdlRule : IGuardrailRule
         {
             if (!_policy.BlockTruncateTable) return;
 
-            var tableName = node.TableViewOrFunctionExpr?.BaseIdentifier?.Value ?? string.Empty;
+            var tableName = node.TableName?.BaseIdentifier?.Value ?? string.Empty;
             if (!tableName.StartsWith('#'))
             {
                 Violations.Add(new GuardrailViolation(

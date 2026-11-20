@@ -37,8 +37,7 @@ public class SqlDiffEngine : ISqlDiffEngine
 
         var diffModel = _diffBuilder.BuildDiffModel(
             normalizedOld,
-            normalizedNew,
-            ignoreWhitespace: ignoreWhitespace);
+            normalizedNew);
 
         var result = new SqlDiffResult
         {
